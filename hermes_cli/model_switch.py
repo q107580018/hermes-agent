@@ -1053,9 +1053,20 @@ def list_authenticated_providers(
     if custom_providers and isinstance(custom_providers, list):
         from collections import OrderedDict
 
+        user_provider_keys = set()
+        if isinstance(user_providers, dict):
+            user_provider_keys = {str(k).strip().lower() for k in user_providers.keys()}
+
         groups: "OrderedDict[str, dict]" = OrderedDict()
         for entry in custom_providers:
             if not isinstance(entry, dict):
+                continue
+
+            compat_provider_key = str(entry.get("provider_key", "") or "").strip().lower()
+            if compat_provider_key and compat_provider_key in user_provider_keys:
+                # This entry is a compatibility projection of the new providers:
+                # schema. The real provider row is already shown in section 3,
+                # so skip the synthetic legacy custom:* duplicate.
                 continue
 
             display_name = (entry.get("name") or "").strip()

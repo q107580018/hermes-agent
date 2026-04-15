@@ -729,6 +729,51 @@ class TestAdapterBehavior(unittest.TestCase):
         )
 
     @patch.dict(os.environ, {}, clear=True)
+    @unittest.skipUnless(_HAS_LARK_OAPI, "lark-oapi not installed")
+    def test_remove_ack_reaction_uses_stored_reaction_id(self):
+        from gateway.config import PlatformConfig
+        from gateway.platforms.feishu import FeishuAdapter
+
+        adapter = FeishuAdapter(PlatformConfig())
+        adapter._pending_ack_reaction_ids["om_msg"] = "r_ack"
+        captured = {}
+
+        class _ReactionAPI:
+            def delete(self, request):
+                captured["request"] = request
+                return SimpleNamespace(success=lambda: True)
+
+        adapter._client = SimpleNamespace(
+            im=SimpleNamespace(v1=SimpleNamespace(message_reaction=_ReactionAPI()))
+        )
+
+        async def _direct(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        with patch("gateway.platforms.feishu.asyncio.to_thread", side_effect=_direct):
+            removed = asyncio.run(adapter._remove_ack_reaction("om_msg"))
+
+        self.assertTrue(removed)
+        self.assertEqual(captured["request"].message_id, "om_msg")
+        self.assertEqual(captured["request"].reaction_id, "r_ack")
+        self.assertNotIn("om_msg", adapter._pending_ack_reaction_ids)
+
+    @patch.dict(os.environ, {}, clear=True)
+    @unittest.skipUnless(_HAS_LARK_OAPI, "lark-oapi not installed")
+    def test_on_processing_complete_removes_ack_reaction_on_cancelled(self):
+        from gateway.config import PlatformConfig
+        from gateway.platforms.base import ProcessingOutcome
+        from gateway.platforms.feishu import FeishuAdapter
+
+        adapter = FeishuAdapter(PlatformConfig())
+        event = SimpleNamespace(message_id="om_msg")
+
+        with patch.object(adapter, "_remove_ack_reaction", new=AsyncMock(return_value=True)) as remove_ack:
+            asyncio.run(adapter.on_processing_complete(event, ProcessingOutcome.CANCELLED))
+
+        remove_ack.assert_awaited_once_with("om_msg")
+
+    @patch.dict(os.environ, {}, clear=True)
     def test_ack_reaction_events_are_ignored_to_avoid_feedback_loops(self):
         from gateway.config import PlatformConfig
         from gateway.platforms.feishu import FeishuAdapter
