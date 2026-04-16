@@ -19,6 +19,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from hermes_cli.i18n import t
+
 # prompt_toolkit is an optional CLI dependency — only needed for
 # SlashCommandCompleter and SlashCommandAutoSuggest.  Gateway and test
 # environments that lack it must still be able to import this module
@@ -193,11 +195,42 @@ def resolve_command(name: str) -> CommandDef | None:
     return _COMMAND_LOOKUP.get(name.lower().lstrip("/"))
 
 
+def get_command_description(command_name: str) -> str:
+    """Return localized description text for a canonical command name."""
+    cmd = resolve_command(command_name)
+    if cmd is None:
+        return command_name
+    translated = t(f"commands.{cmd.name}")
+    if translated == f"commands.{cmd.name}":
+        return cmd.description
+    return translated
+
+
+def get_category_label(category: str) -> str:
+    """Return localized category label for help output."""
+    key_map = {
+        "Session": "help.categories.session",
+        "Configuration": "help.categories.configuration",
+        "Tools & Skills": "help.categories.tools_skills",
+        "Info": "help.categories.info",
+        "Exit": "help.categories.exit",
+    }
+    key = key_map.get(category)
+    if not key:
+        return category
+    label = t(key)
+    return label if label != key else category
+
+
 def _build_description(cmd: CommandDef) -> str:
     """Build a CLI-facing description string including usage hint."""
+    desc = get_command_description(cmd.name)
     if cmd.args_hint:
-        return f"{cmd.description} (usage: /{cmd.name} {cmd.args_hint})"
-    return cmd.description
+        usage = t("help.usage", command=cmd.name, args=cmd.args_hint)
+        if usage == "help.usage":
+            usage = f"usage: /{cmd.name} {cmd.args_hint}"
+        return f"{desc} ({usage})"
+    return desc
 
 
 # Backwards-compatible flat dict: "/command" -> description
@@ -206,13 +239,16 @@ for _cmd in COMMAND_REGISTRY:
     if not _cmd.gateway_only:
         COMMANDS[f"/{_cmd.name}"] = _build_description(_cmd)
         for _alias in _cmd.aliases:
-            COMMANDS[f"/{_alias}"] = f"{_cmd.description} (alias for /{_cmd.name})"
+            alias_for = t("help.alias_for", command=_cmd.name)
+            if alias_for == "help.alias_for":
+                alias_for = f"alias for /{_cmd.name}"
+            COMMANDS[f"/{_alias}"] = f"{get_command_description(_cmd.name)} ({alias_for})"
 
 # Backwards-compatible categorized dict
 COMMANDS_BY_CATEGORY: dict[str, dict[str, str]] = {}
 for _cmd in COMMAND_REGISTRY:
     if not _cmd.gateway_only:
-        _cat = COMMANDS_BY_CATEGORY.setdefault(_cmd.category, {})
+        _cat = COMMANDS_BY_CATEGORY.setdefault(get_category_label(_cmd.category), {})
         _cat[f"/{_cmd.name}"] = COMMANDS[f"/{_cmd.name}"]
         for _alias in _cmd.aliases:
             _cat[f"/{_alias}"] = COMMANDS[f"/{_alias}"]
@@ -313,7 +349,7 @@ def gateway_help_lines() -> list[str]:
                 continue
             alias_parts.append(f"`/{a}`")
         alias_note = f" (alias: {', '.join(alias_parts)})" if alias_parts else ""
-        lines.append(f"`/{cmd.name}{args}` -- {cmd.description}{alias_note}")
+        lines.append(f"`/{cmd.name}{args}` -- {get_command_description(cmd.name)}{alias_note}")
     return lines
 
 
@@ -331,7 +367,7 @@ def telegram_bot_commands() -> list[tuple[str, str]]:
             continue
         tg_name = _sanitize_telegram_name(cmd.name)
         if tg_name:
-            result.append((tg_name, cmd.description))
+            result.append((tg_name, get_command_description(cmd.name)))
     return result
 
 

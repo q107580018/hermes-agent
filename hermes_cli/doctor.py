@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 
 from hermes_cli.config import get_project_root, get_hermes_home, get_env_path
+from hermes_cli.i18n import t
 from hermes_constants import display_hermes_home
 
 PROJECT_ROOT = get_project_root()
@@ -148,7 +149,7 @@ def _check_gateway_service_linger(issues: list[str]) -> None:
         return
 
     print()
-    print(color("◆ Gateway Service", Colors.CYAN, Colors.BOLD))
+    print(color(f"◆ {t('doctor.gateway_service')}", Colors.CYAN, Colors.BOLD))
 
     linger_enabled, linger_detail = get_systemd_linger_status()
     if linger_enabled is True:
@@ -175,14 +176,14 @@ def run_doctor(args):
     
     print()
     print(color("┌─────────────────────────────────────────────────────────┐", Colors.CYAN))
-    print(color("│                 🩺 Hermes Doctor                        │", Colors.CYAN))
+    print(color(f"│                 🩺 {t('doctor.title'):<36}│", Colors.CYAN))
     print(color("└─────────────────────────────────────────────────────────┘", Colors.CYAN))
     
     # =========================================================================
     # Check: Python version
     # =========================================================================
     print()
-    print(color("◆ Python Environment", Colors.CYAN, Colors.BOLD))
+    print(color(f"◆ {t('doctor.python_environment')}", Colors.CYAN, Colors.BOLD))
     
     py_version = sys.version_info
     if py_version >= (3, 11):
@@ -207,7 +208,7 @@ def run_doctor(args):
     # Check: Required packages
     # =========================================================================
     print()
-    print(color("◆ Required Packages", Colors.CYAN, Colors.BOLD))
+    print(color(f"◆ {t('doctor.required_packages')}", Colors.CYAN, Colors.BOLD))
     
     required_packages = [
         ("openai", "OpenAI SDK"),
@@ -242,7 +243,7 @@ def run_doctor(args):
     # Check: Configuration files
     # =========================================================================
     print()
-    print(color("◆ Configuration Files", Colors.CYAN, Colors.BOLD))
+    print(color(f"◆ {t('doctor.configuration_files')}", Colors.CYAN, Colors.BOLD))
     
     # Check ~/.hermes/.env (primary location for user config)
     env_path = HERMES_HOME / '.env'

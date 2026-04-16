@@ -58,8 +58,11 @@ def _require_tty(command_name: str) -> None:
     This guard prevents accidental non-interactive invocation.
     """
     if not sys.stdin.isatty():
+        err = t("errors.command_required_tty", command=command_name)
+        if err == "errors.command_required_tty":
+            err = f"Error: 'hermes {command_name}' requires an interactive terminal."
         print(
-            f"Error: 'hermes {command_name}' requires an interactive terminal.\n"
+            f"{err}\n"
             f"It cannot be run through a pipe or non-interactive subprocess.\n"
             f"Run it directly in your terminal instead.",
             file=sys.stderr,
@@ -168,6 +171,7 @@ import time as _time
 from datetime import datetime
 
 from hermes_cli import __version__, __release_date__
+from hermes_cli.i18n import t
 from hermes_constants import OPENROUTER_BASE_URL
 
 logger = logging.getLogger(__name__)
@@ -4743,7 +4747,7 @@ def main():
     """Main entry point for hermes CLI."""
     parser = argparse.ArgumentParser(
         prog="hermes",
-        description="Hermes Agent - AI assistant with tool-calling capabilities",
+        description=t("main.description"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -4784,7 +4788,7 @@ For more help on a command:
     parser.add_argument(
         "--version", "-V",
         action="store_true",
-        help="Show version and exit"
+        help=t("main.version_help")
     )
     parser.add_argument(
         "--resume", "-r",
@@ -4826,15 +4830,15 @@ For more help on a command:
         help="Include the session ID in the agent's system prompt"
     )
     
-    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+    subparsers = parser.add_subparsers(dest="command", help=t("main.command_to_run"))
     
     # =========================================================================
     # chat command
     # =========================================================================
     chat_parser = subparsers.add_parser(
         "chat",
-        help="Interactive chat with the agent",
-        description="Start an interactive chat session with Hermes Agent"
+        help=t("main.chat_help"),
+        description=t("main.chat_description")
     )
     chat_parser.add_argument(
         "-q", "--query",
@@ -4932,8 +4936,8 @@ For more help on a command:
     # =========================================================================
     model_parser = subparsers.add_parser(
         "model",
-        help="Select default model and provider",
-        description="Interactively select your inference provider and default model"
+        help=t("main.model_help"),
+        description=t("main.model_description")
     )
     model_parser.add_argument(
         "--portal-url",
@@ -4980,8 +4984,8 @@ For more help on a command:
     # =========================================================================
     gateway_parser = subparsers.add_parser(
         "gateway",
-        help="Messaging gateway management",
-        description="Manage the messaging gateway (Telegram, Discord, WhatsApp)"
+        help=t("main.gateway_help"),
+        description=t("main.gateway_description")
     )
     gateway_subparsers = gateway_parser.add_subparsers(dest="gateway_command")
     
@@ -5034,8 +5038,8 @@ For more help on a command:
     # =========================================================================
     setup_parser = subparsers.add_parser(
         "setup",
-        help="Interactive setup wizard",
-        description="Configure Hermes Agent with an interactive wizard. "
+        help=t("main.setup_help"),
+        description=t("main.setup_description") + " "
                     "Run a specific section: hermes setup model|tts|terminal|gateway|tools|agent"
     )
     setup_parser.add_argument(
@@ -5169,8 +5173,8 @@ For more help on a command:
     # =========================================================================
     status_parser = subparsers.add_parser(
         "status",
-        help="Show status of all components",
-        description="Display status of Hermes Agent components"
+        help=t("main.status_help"),
+        description=t("main.status_description")
     )
     status_parser.add_argument(
         "--all",
@@ -5189,8 +5193,8 @@ For more help on a command:
     # =========================================================================
     cron_parser = subparsers.add_parser(
         "cron",
-        help="Cron job management",
-        description="Manage scheduled tasks"
+        help=t("main.cron_help"),
+        description=t("main.cron_description")
     )
     cron_subparsers = cron_parser.add_subparsers(dest="cron_command")
     
@@ -5279,8 +5283,8 @@ For more help on a command:
     # =========================================================================
     doctor_parser = subparsers.add_parser(
         "doctor",
-        help="Check configuration and dependencies",
-        description="Diagnose issues with Hermes Agent setup"
+        help=t("main.doctor_help"),
+        description=t("main.doctor_description")
     )
     doctor_parser.add_argument(
         "--fix",
