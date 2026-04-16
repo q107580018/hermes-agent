@@ -148,6 +148,7 @@ STRINGS = {
             "draining_before_restart": "重启前正在等待 {count} 个活动 Agent 结束...",
             "already_in_progress": "网关重启已在进行中...",
             "restarting_notice": "正在重启网关。如果 60 秒内未收到通知，请在控制台执行 `hermes gateway restart`。",
+            "restarted_success": "♻ 网关已成功重启。你的会话将继续。",
         },
         "help": {
             "title": "Hermes 命令",

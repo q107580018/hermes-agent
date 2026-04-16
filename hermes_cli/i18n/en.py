@@ -148,6 +148,7 @@ STRINGS = {
             "draining_before_restart": "Draining {count} active agent(s) before restart...",
             "already_in_progress": "Gateway restart already in progress...",
             "restarting_notice": "Restarting gateway. If you aren't notified within 60 seconds, restart from the console with `hermes gateway restart`.",
+            "restarted_success": "♻ Gateway restarted successfully. Your session continues.",
         },
         "help": {
             "title": "Hermes Commands",

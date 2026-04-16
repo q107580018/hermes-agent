@@ -1717,7 +1717,10 @@ class GatewayRunner:
         self._restart_task_started = True
 
         async def _run_restart() -> None:
-            await asyncio.sleep(0.05)
+            # Give command-response delivery a short grace window so IM users
+            # reliably receive the immediate "/restart acknowledged" message
+            # before adapters begin shutdown/restart.
+            await asyncio.sleep(0.1)
             await self.stop(restart=True, detached_restart=detached, service_restart=via_service)
 
         task = asyncio.create_task(_run_restart())
@@ -7275,6 +7278,7 @@ class GatewayRunner:
     async def _send_restart_notification(self) -> None:
         """Notify the chat that initiated /restart that the gateway is back."""
         import json as _json
+        from hermes_cli.i18n import t
 
         notify_path = _hermes_home / ".restart_notify.json"
         if not notify_path.exists():
@@ -7301,7 +7305,7 @@ class GatewayRunner:
             metadata = {"thread_id": thread_id} if thread_id else None
             await adapter.send(
                 chat_id,
-                "♻ Gateway restarted successfully. Your session continues.",
+                t("gateway.restart.restarted_success"),
                 metadata=metadata,
             )
             logger.info(
