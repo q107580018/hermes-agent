@@ -1052,10 +1052,12 @@ class GatewayRunner:
         return len(self._running_agents)
 
     def _status_action_label(self) -> str:
-        return "restart" if self._restart_requested else "shutdown"
+        from hermes_cli.i18n import t
+        return t("gateway.status_action.restart") if self._restart_requested else t("gateway.status_action.shutdown")
 
     def _status_action_gerund(self) -> str:
-        return "restarting" if self._restart_requested else "shutting down"
+        from hermes_cli.i18n import t
+        return t("gateway.status_action.restarting") if self._restart_requested else t("gateway.status_action.shutting_down")
 
     def _queue_during_drain_enabled(self) -> bool:
         return self._restart_requested and self._busy_input_mode == "queue"
@@ -2833,6 +2835,7 @@ class GatewayRunner:
             from hermes_cli.commands import resolve_command as _resolve_cmd_inner
             _evt_cmd = event.get_command()
             _cmd_def_inner = _resolve_cmd_inner(_evt_cmd) if _evt_cmd else None
+            from hermes_cli.i18n import t as _t
 
             if _cmd_def_inner and _cmd_def_inner.name == "restart":
                 return await self._handle_restart_command(event)
@@ -2854,7 +2857,7 @@ class GatewayRunner:
                 if _quick_key in self._running_agents:
                     del self._running_agents[_quick_key]
                 logger.info("STOP for session %s — agent interrupted, session lock released", _quick_key[:20])
-                return "⚡ Stopped. You can continue this session."
+                return f"⚡ {_t('gateway.stop.stopped')}"
 
             # /reset and /new must bypass the running-agent guard so they
             # actually dispatch as commands instead of being queued as user
@@ -2882,7 +2885,7 @@ class GatewayRunner:
             if event.get_command() in ("queue", "q"):
                 queued_text = event.get_command_args().strip()
                 if not queued_text:
-                    return "Usage: /queue <prompt>"
+                    return _t("gateway.queue.usage")
                 adapter = self.adapters.get(source.platform)
                 if adapter:
                     from gateway.platforms.base import MessageEvent as _ME, MessageType as _MT
@@ -2894,11 +2897,11 @@ class GatewayRunner:
                         channel_prompt=event.channel_prompt,
                     )
                     adapter._pending_messages[_quick_key] = queued_event
-                return "Queued for the next turn."
+                return _t("gateway.queue.queued")
 
             # /model must not be used while the agent is running.
             if _cmd_def_inner and _cmd_def_inner.name == "model":
-                return "Agent is running — wait or /stop first, then switch models."
+                return _t("gateway.model.running_guard")
 
             # /approve and /deny must bypass the running-agent interrupt path.
             # The agent thread is blocked on a threading.Event inside
@@ -2929,7 +2932,7 @@ class GatewayRunner:
                     if _quick_key in self._running_agents:
                         del self._running_agents[_quick_key]
                     logger.info("HARD STOP (pending) for session %s — sentinel cleared", _quick_key[:20])
-                    return "⚡ Force-stopped. The agent was still starting — session unlocked."
+                    return f"⚡ {_t('gateway.stop.force_stopped')}"
                 # Queue the message so it will be picked up after the
                 # agent starts.
                 adapter = self.adapters.get(source.platform)
@@ -2940,9 +2943,9 @@ class GatewayRunner:
                 if self._queue_during_drain_enabled():
                     self._queue_or_replace_pending_event(_quick_key, event)
                 return (
-                    f"⏳ Gateway {self._status_action_gerund()} — queued for the next turn after it comes back."
+                    f"⏳ {_t('gateway.gateway_busy.queued_after_return', action=self._status_action_gerund())}"
                     if self._queue_during_drain_enabled()
-                    else f"⏳ Gateway is {self._status_action_gerund()} and is not accepting another turn right now."
+                    else f"⏳ {_t('gateway.gateway_busy.not_accepting', action=self._status_action_gerund())}"
                 )
             logger.debug("PRIORITY interrupt for session %s", _quick_key[:20])
             running_agent.interrupt(event.text)
@@ -4248,13 +4251,15 @@ class GatewayRunner:
             provider=provider or "",
         )
 
+        from hermes_cli.i18n import t
+
         # Format context source hint
         if config_context_length is not None:
-            ctx_source = "config"
+            ctx_source = t("gateway.session_info.ctx_source_config")
         elif context_length == DEFAULT_FALLBACK_CONTEXT:
-            ctx_source = "default — set model.context_length in config to override"
+            ctx_source = t("gateway.session_info.ctx_source_default")
         else:
-            ctx_source = "detected"
+            ctx_source = t("gateway.session_info.ctx_source_detected")
 
         # Format context length for display
         if context_length >= 1_000_000:
@@ -4264,20 +4269,27 @@ class GatewayRunner:
         else:
             ctx_display = str(context_length)
 
+        model_label = t("gateway.session_info.model_label")
+        provider_label = t("gateway.session_info.provider_label")
+        context_label = t("gateway.session_info.context_label")
+        endpoint_label = t("gateway.session_info.endpoint_label")
+        token_label = t("gateway.session_info.token_label")
+
         lines = [
-            f"◆ Model: `{model}`",
-            f"◆ Provider: {provider or 'openrouter'}",
-            f"◆ Context: {ctx_display} tokens ({ctx_source})",
+            f"◆ {model_label}: `{model}`",
+            f"◆ {provider_label}: {provider or 'openrouter'}",
+            f"◆ {context_label}: {ctx_display} {token_label} ({ctx_source})",
         ]
 
         # Show endpoint for local/custom setups
         if base_url and ("localhost" in base_url or "127.0.0.1" in base_url or "0.0.0.0" in base_url):
-            lines.append(f"◆ Endpoint: {base_url}")
+            lines.append(f"◆ {endpoint_label}: {base_url}")
 
         return "\n".join(lines)
 
     async def _handle_reset_command(self, event: MessageEvent) -> str:
         """Handle /new or /reset command."""
+        from hermes_cli.i18n import get_locale, t
         source = event.source
         
         # Get existing session key
@@ -4365,11 +4377,11 @@ class GatewayRunner:
             session_info = ""
 
         if new_entry:
-            header = "✨ Session reset! Starting fresh."
+            header = f"✨ {t('gateway.reset.header_reset')}"
         else:
             # No existing session, just create one
             new_entry = self.session_store.get_or_create_session(source, force_new=True)
-            header = "✨ New session started!"
+            header = f"✨ {t('gateway.reset.header_new')}"
 
         # Fire plugin on_session_reset hook (new session guaranteed to exist)
         try:
@@ -4382,8 +4394,12 @@ class GatewayRunner:
 
         # Append a random tip to the reset message
         try:
-            from hermes_cli.tips import get_random_tip
-            _tip_line = f"\n✦ Tip: {get_random_tip()}"
+            if get_locale() == "en":
+                from hermes_cli.tips import get_random_tip
+                tip_text = get_random_tip()
+            else:
+                tip_text = t("gateway.reset.tip_fallback")
+            _tip_line = f"\n✦ {t('gateway.reset.tip_prefix')}: {tip_text}"
         except Exception:
             _tip_line = ""
 
@@ -4395,19 +4411,21 @@ class GatewayRunner:
         """Handle /profile — show active profile name and home directory."""
         from hermes_constants import display_hermes_home
         from hermes_cli.profiles import get_active_profile_name
+        from hermes_cli.i18n import t
 
         display = display_hermes_home()
         profile_name = get_active_profile_name()
 
         lines = [
-            f"👤 **Profile:** `{profile_name}`",
-            f"📂 **Home:** `{display}`",
+            f"👤 **{t('gateway.profile.profile_label')}:** `{profile_name}`",
+            f"📂 **{t('gateway.profile.home_label')}:** `{display}`",
         ]
 
         return "\n".join(lines)
 
     async def _handle_status_command(self, event: MessageEvent) -> str:
         """Handle /status command."""
+        from hermes_cli.i18n import t
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
 
@@ -4425,19 +4443,19 @@ class GatewayRunner:
                 title = None
 
         lines = [
-            "📊 **Hermes Gateway Status**",
+            f"📊 **{t('gateway.status.title')}**",
             "",
-            f"**Session ID:** `{session_entry.session_id}`",
+            f"**{t('gateway.status.session_id_label')}:** `{session_entry.session_id}`",
         ]
         if title:
-            lines.append(f"**Title:** {title}")
+            lines.append(f"**{t('gateway.status.title_label')}:** {title}")
         lines.extend([
-            f"**Created:** {session_entry.created_at.strftime('%Y-%m-%d %H:%M')}",
-            f"**Last Activity:** {session_entry.updated_at.strftime('%Y-%m-%d %H:%M')}",
-            f"**Tokens:** {session_entry.total_tokens:,}",
-            f"**Agent Running:** {'Yes ⚡' if is_running else 'No'}",
+            f"**{t('gateway.status.created_label')}:** {session_entry.created_at.strftime('%Y-%m-%d %H:%M')}",
+            f"**{t('gateway.status.last_activity_label')}:** {session_entry.updated_at.strftime('%Y-%m-%d %H:%M')}",
+            f"**{t('gateway.status.tokens_label')}:** {session_entry.total_tokens:,}",
+            f"**{t('gateway.status.agent_running_label')}:** {t('gateway.status.yes_running') if is_running else t('gateway.status.no_running')}",
             "",
-            f"**Connected Platforms:** {', '.join(connected_platforms)}",
+            f"**{t('gateway.status.connected_platforms_label')}:** {', '.join(connected_platforms)}",
         ])
 
         return "\n".join(lines)
@@ -4453,6 +4471,7 @@ class GatewayRunner:
 
         The session is preserved so the user can continue the conversation.
         """
+        from hermes_cli.i18n import t
         source = event.source
         session_entry = self.session_store.get_or_create_session(source)
         session_key = session_entry.session_key
@@ -4463,24 +4482,25 @@ class GatewayRunner:
             if session_key in self._running_agents:
                 del self._running_agents[session_key]
             logger.info("STOP (pending) for session %s — sentinel cleared", session_key[:20])
-            return "⚡ Stopped. The agent hadn't started yet — you can continue this session."
+            return f"⚡ {t('gateway.stop.stopped_pending')}"
         if agent:
             agent.interrupt("Stop requested")
             # Force-clean the session lock so a truly hung agent doesn't
             # keep it locked forever.
             if session_key in self._running_agents:
                 del self._running_agents[session_key]
-            return "⚡ Stopped. You can continue this session."
+            return f"⚡ {t('gateway.stop.stopped')}"
         else:
-            return "No active task to stop."
+            return t("gateway.stop.no_active")
 
     async def _handle_restart_command(self, event: MessageEvent) -> str:
         """Handle /restart command - drain active work, then restart the gateway."""
+        from hermes_cli.i18n import t
         if self._restart_requested or self._draining:
             count = self._running_agent_count()
             if count:
-                return f"⏳ Draining {count} active agent(s) before restart..."
-            return "⏳ Gateway restart already in progress..."
+                return f"⏳ {t('gateway.restart.draining_before_restart', count=count)}"
+            return f"⏳ {t('gateway.restart.already_in_progress')}"
 
         # Save the requester's routing info so the new gateway process can
         # notify them once it comes back online.
@@ -4510,27 +4530,28 @@ class GatewayRunner:
         else:
             self.request_restart(detached=True, via_service=False)
         if active_agents:
-            return f"⏳ Draining {active_agents} active agent(s) before restart..."
-        return "♻ Restarting gateway. If you aren't notified within 60 seconds, restart from the console with `hermes gateway restart`."
+            return f"⏳ {t('gateway.restart.draining_before_restart', count=active_agents)}"
+        return f"♻ {t('gateway.restart.restarting_notice')}"
 
     async def _handle_help_command(self, event: MessageEvent) -> str:
         """Handle /help command - list available commands."""
         from hermes_cli.commands import gateway_help_lines
+        from hermes_cli.i18n import t
         lines = [
-            "📖 **Hermes Commands**\n",
+            f"📖 **{t('gateway.help.title')}**\n",
             *gateway_help_lines(),
         ]
         try:
             from agent.skill_commands import get_skill_commands
             skill_cmds = get_skill_commands()
             if skill_cmds:
-                lines.append(f"\n⚡ **Skill Commands** ({len(skill_cmds)} active):")
+                lines.append(f"\n⚡ **{t('gateway.help.skill_commands_title', count=len(skill_cmds))}**")
                 # Show first 10, then point to /commands for the rest
                 sorted_cmds = sorted(skill_cmds)
                 for cmd in sorted_cmds[:10]:
                     lines.append(f"`{cmd}` — {skill_cmds[cmd]['description']}")
                 if len(sorted_cmds) > 10:
-                    lines.append(f"\n... and {len(sorted_cmds) - 10} more. Use `/commands` for the full paginated list.")
+                    lines.append(f"\n{t('gateway.help.more_commands_hint', count=len(sorted_cmds) - 10)}")
         except Exception:
             pass
         return "\n".join(lines)
@@ -4538,13 +4559,14 @@ class GatewayRunner:
     async def _handle_commands_command(self, event: MessageEvent) -> str:
         """Handle /commands [page] - paginated list of all commands and skills."""
         from hermes_cli.commands import gateway_help_lines
+        from hermes_cli.i18n import t
 
         raw_args = event.get_command_args().strip()
         if raw_args:
             try:
                 requested_page = int(raw_args)
             except ValueError:
-                return "Usage: `/commands [page]`"
+                return t("gateway.commands.usage")
         else:
             requested_page = 1
 
@@ -4555,15 +4577,15 @@ class GatewayRunner:
             skill_cmds = get_skill_commands()
             if skill_cmds:
                 entries.append("")
-                entries.append("⚡ **Skill Commands**:")
+                entries.append(f"⚡ **{t('gateway.commands.skill_commands_header')}**")
                 for cmd in sorted(skill_cmds):
-                    desc = skill_cmds[cmd].get("description", "").strip() or "Skill command"
+                    desc = skill_cmds[cmd].get("description", "").strip() or t("gateway.commands.skill_command_fallback")
                     entries.append(f"`{cmd}` — {desc}")
         except Exception:
             pass
 
         if not entries:
-            return "No commands available."
+            return t("gateway.commands.none")
 
         from gateway.config import Platform
         page_size = 15 if event.source.platform == Platform.TELEGRAM else 20
@@ -4573,19 +4595,19 @@ class GatewayRunner:
         page_entries = entries[start:start + page_size]
 
         lines = [
-            f"📚 **Commands** ({len(entries)} total, page {page}/{total_pages})",
+            f"📚 **{t('gateway.commands.title', total=len(entries), page=page, total_pages=total_pages)}**",
             "",
             *page_entries,
         ]
         if total_pages > 1:
             nav_parts = []
             if page > 1:
-                nav_parts.append(f"`/commands {page - 1}` ← prev")
+                nav_parts.append(f"`/commands {page - 1}` ← {t('gateway.commands.prev')}")
             if page < total_pages:
-                nav_parts.append(f"next → `/commands {page + 1}`")
+                nav_parts.append(f"{t('gateway.commands.next')} → `/commands {page + 1}`")
             lines.extend(["", " | ".join(nav_parts)])
         if page != requested_page:
-            lines.append(f"_(Requested page {requested_page} was out of range, showing page {page}.)_")
+            lines.append(f"_({t('gateway.commands.out_of_range', requested=requested_page, page=page)})_")
         return "\n".join(lines)
     
     async def _handle_model_command(self, event: MessageEvent) -> Optional[str]:

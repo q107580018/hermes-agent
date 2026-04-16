@@ -83,10 +83,10 @@ async def test_status_command_reports_running_agent_without_interrupt(monkeypatc
 
     result = await runner._handle_message(_make_event("/status"))
 
-    assert "**Session ID:** `sess-1`" in result
-    assert "**Tokens:** 321" in result
-    assert "**Agent Running:** Yes ⚡" in result
-    assert "**Title:**" not in result
+    assert "`sess-1`" in result
+    assert "321" in result
+    assert "⚡" in result
+    assert "My titled session" not in result
     running_agent.interrupt.assert_not_called()
     assert runner._pending_messages == {}
 
@@ -107,8 +107,8 @@ async def test_status_command_includes_session_title_when_present():
 
     result = await runner._handle_message(_make_event("/status"))
 
-    assert "**Session ID:** `sess-1`" in result
-    assert "**Title:** My titled session" in result
+    assert "`sess-1`" in result
+    assert "My titled session" in result
 
 
 @pytest.mark.asyncio
@@ -206,7 +206,7 @@ async def test_status_command_bypasses_active_session_guard():
 
     assert handler_called_with, "/status handler was never called (event was queued or dropped)"
     assert sent, "/status response was never sent"
-    assert "Agent Running" in sent[0]
+    assert "⚡" in sent[0]
     assert not interrupt_event.is_set(), "/status incorrectly triggered an agent interrupt"
     assert session_key not in adapter._pending_messages, "/status was incorrectly queued"
 
@@ -232,5 +232,5 @@ async def test_profile_command_reports_custom_root_profile(monkeypatch, tmp_path
 
     result = await runner._handle_profile_command(_make_event("/profile"))
 
-    assert "**Profile:** `coder`" in result
-    assert f"**Home:** `{profile_home}`" in result
+    assert "`coder`" in result
+    assert f"`{profile_home}`" in result

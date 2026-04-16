@@ -95,8 +95,8 @@ class TestFormatSessionInfo:
                                   {"provider": "openrouter", "base_url": "", "api_key": ""})
         with p1, p2, p3:
             info = runner._format_session_info()
-        assert "Model" in info
-        assert "Context" in info
+        assert "◆" in info
+        assert "claude-sonnet-4.6" in info
 
     def test_runtime_resolution_failure_doesnt_crash(self, runner, tmp_path):
         """If runtime resolution raises, should still produce output."""
@@ -108,3 +108,17 @@ class TestFormatSessionInfo:
             info = runner._format_session_info()
         assert "4K" in info
         assert "config" in info
+
+    def test_zh_locale_labels(self, runner, tmp_path):
+        p1, p2, p3 = _patch_info(
+            tmp_path,
+            "model:\n  default: test-model\n  context_length: 32768\n  provider: nous\n",
+            "test-model",
+            {"provider": "nous", "base_url": "", "api_key": ""},
+        )
+        with p1, p2, p3, patch("hermes_cli.i18n._base.get_locale", return_value="zh"):
+            info = runner._format_session_info()
+        assert "◆ 模型:" in info
+        assert "◆ 提供方:" in info
+        assert "◆ 上下文:" in info
+        assert "配置" in info
