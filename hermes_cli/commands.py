@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from utils import is_truthy_value
+from hermes_cli.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -232,22 +233,56 @@ def resolve_command(name: str) -> CommandDef | None:
     return _COMMAND_LOOKUP.get(name.lower().lstrip("/"))
 
 
+def get_command_description(command_name: str) -> str:
+    """Return localized description text for a canonical command name."""
+    cmd = resolve_command(command_name)
+    if cmd is None:
+        return command_name
+    translated = t(f"commands.{cmd.name}")
+    if translated == f"commands.{cmd.name}":
+        return cmd.description
+    return translated
+
+
+def get_category_label(category: str) -> str:
+    """Return localized category label for help output."""
+    key_map = {
+        "Session": "help.categories.session",
+        "Configuration": "help.categories.configuration",
+        "Tools & Skills": "help.categories.tools_skills",
+        "Info": "help.categories.info",
+        "Exit": "help.categories.exit",
+    }
+    key = key_map.get(category)
+    if not key:
+        return category
+    label = t(key)
+    return label if label != key else category
+
+
 def _build_description(cmd: CommandDef) -> str:
     """Build a CLI-facing description string including usage hint."""
+    desc = get_command_description(cmd.name)
     if cmd.args_hint:
-        return f"{cmd.description} (usage: /{cmd.name} {cmd.args_hint})"
-    return cmd.description
+        usage = t("help.usage", command=cmd.name, args=cmd.args_hint)
+        if usage == "help.usage":
+            usage = f"usage: /{cmd.name} {cmd.args_hint}"
+        return f"{desc} ({usage})"
+    return desc
 
 
-# Backwards-compatible flat dict: "/command" -> description
+# Backwards-compatible flat dict: "/command" -> English description.
 COMMANDS: dict[str, str] = {}
 for _cmd in COMMAND_REGISTRY:
     if not _cmd.gateway_only:
-        COMMANDS[f"/{_cmd.name}"] = _build_description(_cmd)
+        _desc = _cmd.description
+        if _cmd.args_hint:
+            _desc = f"{_desc} (usage: /{_cmd.name} {_cmd.args_hint})"
+        COMMANDS[f"/{_cmd.name}"] = _desc
         for _alias in _cmd.aliases:
             COMMANDS[f"/{_alias}"] = f"{_cmd.description} (alias for /{_cmd.name})"
 
-# Backwards-compatible categorized dict
+# Backwards-compatible categorized dict with canonical English categories.
 COMMANDS_BY_CATEGORY: dict[str, dict[str, str]] = {}
 for _cmd in COMMAND_REGISTRY:
     if not _cmd.gateway_only:
@@ -255,6 +290,22 @@ for _cmd in COMMAND_REGISTRY:
         _cat[f"/{_cmd.name}"] = COMMANDS[f"/{_cmd.name}"]
         for _alias in _cmd.aliases:
             _cat[f"/{_alias}"] = COMMANDS[f"/{_alias}"]
+
+
+def localized_commands_by_category() -> dict[str, dict[str, str]]:
+    """Return localized command help without mutating compatibility globals."""
+    result: dict[str, dict[str, str]] = {}
+    for cmd in COMMAND_REGISTRY:
+        if cmd.gateway_only:
+            continue
+        cat = result.setdefault(get_category_label(cmd.category), {})
+        cat[f"/{cmd.name}"] = _build_description(cmd)
+        for alias in cmd.aliases:
+            alias_for = t("help.alias_for", command=cmd.name)
+            if alias_for == "help.alias_for":
+                alias_for = f"alias for /{cmd.name}"
+            cat[f"/{alias}"] = f"{get_command_description(cmd.name)} ({alias_for})"
+    return result
 
 
 # Subcommands lookup: "/cmd" -> ["sub1", "sub2", ...]
@@ -424,7 +475,7 @@ def gateway_help_lines() -> list[str]:
                 continue
             alias_parts.append(f"`/{a}`")
         alias_note = f" (alias: {', '.join(alias_parts)})" if alias_parts else ""
-        lines.append(f"`/{cmd.name}{args}` -- {cmd.description}{alias_note}")
+        lines.append(f"`/{cmd.name}{args}` -- {get_command_description(cmd.name)}{alias_note}")
     return lines
 
 
@@ -481,7 +532,7 @@ def telegram_bot_commands() -> list[tuple[str, str]]:
             continue
         tg_name = _sanitize_telegram_name(cmd.name)
         if tg_name:
-            result.append((tg_name, cmd.description))
+            result.append((tg_name, get_command_description(cmd.name)))
     for name, description, args_hint in _iter_plugin_command_entries():
         if _requires_argument(args_hint):
             continue

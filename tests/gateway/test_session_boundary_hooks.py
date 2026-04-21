@@ -165,7 +165,22 @@ async def test_hook_error_does_not_break_reset(mock_invoke_hook):
     result = await runner._handle_reset_command(_make_event("/new"))
 
     # Should still return a success message despite hook errors
-    assert "Session reset" in result or "New session" in result
+    assert any(
+        token in result
+        for token in ("Session reset", "New session", "会话已重置", "已开启新会话")
+    )
+
+
+@pytest.mark.asyncio
+@patch("hermes_cli.i18n._base.get_locale", return_value="zh")
+@patch("hermes_cli.plugins.invoke_hook")
+async def test_reset_message_localized_zh(mock_invoke_hook, _mock_locale):
+    runner = _make_runner()
+
+    result = await runner._handle_reset_command(_make_event("/new"))
+
+    assert "会话已重置" in result
+    assert "提示" in result
 
 
 @pytest.mark.asyncio

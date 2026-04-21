@@ -393,6 +393,7 @@ def _ensure_hermes_home_managed(home: Path):
 # =============================================================================
 
 DEFAULT_CONFIG = {
+    "language": "",  # Empty = English default; set to "zh" for Chinese CLI/gateway strings.
     "model": "",
     "providers": {},
     "fallback_providers": [],

@@ -4904,6 +4904,8 @@ class HermesCLI:
 
     def _show_session_status(self):
         """Show gateway-style status for the current CLI session."""
+        from hermes_cli.i18n import t
+
         session_meta = {}
         if self._session_db:
             try:
@@ -4939,19 +4941,20 @@ class HermesCLI:
         is_running = bool(getattr(self, "_agent_running", False))
 
         lines = [
-            "Hermes CLI Status",
+            t("status.cli_status") if t("status.cli_status") != "status.cli_status" else "Hermes CLI Status",
             "",
-            f"Session ID: {self.session_id}",
-            f"Path: {display_hermes_home()}",
+            f"{t('status.session_id') if t('status.session_id') != 'status.session_id' else 'Session ID'}: {self.session_id}",
+            f"{t('status.path') if t('status.path') != 'status.path' else 'Path'}: {display_hermes_home()}",
         ]
         if title:
-            lines.append(f"Title: {title}")
+            title_label = t("status.title")
+            lines.append(f"{title_label if title_label != 'status.title' else 'Title'}: {title}")
         lines.extend([
-            f"Model: {model} ({provider})",
-            f"Created: {created_at.strftime('%Y-%m-%d %H:%M')}",
-            f"Last Activity: {updated_at.strftime('%Y-%m-%d %H:%M')}",
-            f"Tokens: {total_tokens:,}",
-            f"Agent Running: {'Yes' if is_running else 'No'}",
+            f"{t('status.model') if t('status.model') != 'status.model' else 'Model'}: {model} ({provider})",
+            f"{t('status.created') if t('status.created') != 'status.created' else 'Created'}: {created_at.strftime('%Y-%m-%d %H:%M')}",
+            f"{t('status.last_activity') if t('status.last_activity') != 'status.last_activity' else 'Last Activity'}: {updated_at.strftime('%Y-%m-%d %H:%M')}",
+            f"{t('status.tokens') if t('status.tokens') != 'status.tokens' else 'Tokens'}: {total_tokens:,}",
+            f"{t('status.agent_running') if t('status.agent_running') != 'status.agent_running' else 'Agent Running'}: {t('common.yes') if is_running else t('common.no')}",
         ])
         self._console_print("\n".join(lines), highlight=False, markup=False)
     
@@ -4971,14 +4974,15 @@ class HermesCLI:
 
     def show_help(self):
         """Display help information with categorized commands."""
-        from hermes_cli.commands import COMMANDS_BY_CATEGORY
+        from hermes_cli.commands import localized_commands_by_category
+        from hermes_cli.i18n import t
 
         try:
             from hermes_cli.skin_engine import get_active_help_header
-            header = get_active_help_header("(^_^)? Available Commands")
+            header = get_active_help_header(f"(^_^)? {t('help.available_commands')}")
         except Exception:
-            header = "(^_^)? Available Commands"
-        header = (header or "").strip() or "(^_^)? Available Commands"
+            header = f"(^_^)? {t('help.available_commands')}"
+        header = (header or "").strip() or f"(^_^)? {t('help.available_commands')}"
         inner_width = 55
         if len(header) > inner_width:
             header = header[:inner_width]
@@ -4986,7 +4990,7 @@ class HermesCLI:
         _cprint(f"{_BOLD}|{header:^{inner_width}}|{_RST}")
         _cprint(f"{_BOLD}+{'-' * inner_width}+{_RST}")
 
-        for category, commands in COMMANDS_BY_CATEGORY.items():
+        for category, commands in localized_commands_by_category().items():
             _cprint(f"\n  {_BOLD}── {category} ──{_RST}")
             for cmd, desc in commands.items():
                 if not self._command_available(cmd):
@@ -4994,19 +4998,26 @@ class HermesCLI:
                 ChatConsole().print(f"    [bold {_accent_hex()}]{cmd:<15}[/] [dim]-[/] {_escape(desc)}")
 
         if _skill_commands:
-            _cprint(f"\n  ⚡ {_BOLD}Skill Commands{_RST} ({len(_skill_commands)} installed):")
+            _cprint(
+                f"\n  ⚡ {_BOLD}{t('help.skill_commands')}{_RST} "
+                f"({t('help.installed_count', count=len(_skill_commands))}):"
+            )
             for cmd, info in sorted(_skill_commands.items()):
                 ChatConsole().print(
                     f"    [bold {_accent_hex()}]{cmd:<22}[/] [dim]-[/] {_escape(info['description'])}"
                 )
 
-        _cprint(f"\n  {_DIM}Tip: Just type your message to chat with Hermes!{_RST}")
-        _cprint(f"  {_DIM}Multi-line: Alt+Enter for a new line{_RST}")
-        _cprint(f"  {_DIM}Draft editor: Ctrl+G (Alt+G in VSCode/Cursor){_RST}")
+        _cprint(f"\n  {_DIM}{t('help.tip_chat')}{_RST}")
+        _cprint(f"  {_DIM}{t('help.multi_line')}{_RST}")
+        _cprint(f"  {_DIM}{t('help.draft_editor')}{_RST}")
         if _is_termux_environment():
-            _cprint(f"  {_DIM}Attach image: /image {_termux_example_image_path()} or start your prompt with a local image path{_RST}\n")
+            _cprint(
+                f"  {_DIM}"
+                f"{t('help.attach_image', path=_termux_example_image_path())}"
+                f"{_RST}\n"
+            )
         else:
-            _cprint(f"  {_DIM}Paste image: Alt+V (or /paste){_RST}\n")
+            _cprint(f"  {_DIM}{t('help.paste_image')}{_RST}\n")
     
     def show_tools(self):
         """Display available tools with kawaii ASCII art."""

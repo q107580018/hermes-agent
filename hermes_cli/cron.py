@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from hermes_cli.colors import Colors, color
+from hermes_cli.i18n import t
 
 
 def _normalize_skills(single_skill=None, skills: Optional[Iterable[str]] = None) -> Optional[List[str]]:
@@ -45,13 +46,13 @@ def cron_list(show_all: bool = False):
     jobs = list_jobs(include_disabled=show_all)
 
     if not jobs:
-        print(color("No scheduled jobs.", Colors.DIM))
-        print(color("Create one with 'hermes cron create ...' or the /cron command in chat.", Colors.DIM))
+        print(color(t("cron.no_jobs"), Colors.DIM))
+        print(color(t("cron.create_one"), Colors.DIM))
         return
 
     print()
     print(color("┌─────────────────────────────────────────────────────────────────────────┐", Colors.CYAN))
-    print(color("│                         Scheduled Jobs                                  │", Colors.CYAN))
+    print(color(f"│                         {t('cron.scheduled_jobs'):<47}│", Colors.CYAN))
     print(color("└─────────────────────────────────────────────────────────────────────────┘", Colors.CYAN))
     print()
 
@@ -74,25 +75,25 @@ def cron_list(show_all: bool = False):
 
         skills = job.get("skills") or ([job["skill"]] if job.get("skill") else [])
         if state == "paused":
-            status = color("[paused]", Colors.YELLOW)
+            status = color(f"[{t('cron.state_paused')}]", Colors.YELLOW)
         elif state == "completed":
-            status = color("[completed]", Colors.BLUE)
+            status = color(f"[{t('cron.state_completed')}]", Colors.BLUE)
         elif job.get("enabled", True):
-            status = color("[active]", Colors.GREEN)
+            status = color(f"[{t('cron.state_active')}]", Colors.GREEN)
         else:
-            status = color("[disabled]", Colors.RED)
+            status = color(f"[{t('cron.state_disabled')}]", Colors.RED)
 
         print(f"  {color(job_id, Colors.YELLOW)} {status}")
-        print(f"    Name:      {name}")
-        print(f"    Schedule:  {schedule}")
-        print(f"    Repeat:    {repeat_str}")
-        print(f"    Next run:  {next_run}")
-        print(f"    Deliver:   {deliver_str}")
+        print(f"    {t('cron.name')}:      {name}")
+        print(f"    {t('cron.schedule')}:  {schedule}")
+        print(f"    {t('cron.repeat')}:    {repeat_str}")
+        print(f"    {t('cron.next_run')}:  {next_run}")
+        print(f"    {t('cron.deliver')}:   {deliver_str}")
         if skills:
-            print(f"    Skills:    {', '.join(skills)}")
+            print(f"    {t('cron.skills')}:    {', '.join(skills)}")
         script = job.get("script")
         if script:
-            print(f"    Script:    {script}")
+            print(f"    {t('cron.script')}:    {script}")
         if job.get("no_agent"):
             print(f"    Mode:      {color('no-agent', Colors.DIM)} (script stdout delivered directly)")
         workdir = job.get("workdir")
@@ -107,18 +108,18 @@ def cron_list(show_all: bool = False):
                 status_display = color("ok", Colors.GREEN)
             else:
                 status_display = color(f"{last_status}: {job.get('last_error', '?')}", Colors.RED)
-            print(f"    Last run:  {last_run}  {status_display}")
+            print(f"    {t('cron.last_run')}:  {last_run}  {status_display}")
 
         delivery_err = job.get("last_delivery_error")
         if delivery_err:
-            print(f"    {color('⚠ Delivery failed:', Colors.YELLOW)} {delivery_err}")
+            print(f"    {color('⚠ ' + t('cron.delivery_failed'), Colors.YELLOW)} {delivery_err}")
 
         print()
 
     from hermes_cli.gateway import find_gateway_pids
     if not find_gateway_pids():
-        print(color("  ⚠  Gateway is not running — jobs won't fire automatically.", Colors.YELLOW))
-        print(color("     Start it with: hermes gateway install", Colors.DIM))
+        print(color(f"  ⚠  {t('cron.gateway_not_running')}", Colors.YELLOW))
+        print(color(f"     {t('cron.start_with')} hermes gateway install", Colors.DIM))
         print(color("                    sudo hermes gateway install --system  # Linux servers", Colors.DIM))
         print()
 
@@ -138,12 +139,12 @@ def cron_status():
 
     pids = find_gateway_pids()
     if pids:
-        print(color("✓ Gateway is running — cron jobs will fire automatically", Colors.GREEN))
+        print(color(f"✓ {t('cron.gateway_running_auto')}", Colors.GREEN))
         print(f"  PID: {', '.join(map(str, pids))}")
     else:
-        print(color("✗ Gateway is not running — cron jobs will NOT fire", Colors.RED))
+        print(color(f"✗ {t('cron.gateway_not_running_auto')}", Colors.RED))
         print()
-        print("  To enable automatic execution:")
+        print(f"  {t('cron.to_enable_automatic')}")
         print("    hermes gateway install    # Install as a user service")
         print("    sudo hermes gateway install --system  # Linux servers: boot-time system service")
         print("    hermes gateway            # Or run in foreground")
@@ -153,11 +154,11 @@ def cron_status():
     jobs = list_jobs(include_disabled=False)
     if jobs:
         next_runs = [j.get("next_run_at") for j in jobs if j.get("next_run_at")]
-        print(f"  {len(jobs)} active job(s)")
+        print(f"  {t('cron.active_jobs', count=len(jobs))}")
         if next_runs:
-            print(f"  Next run: {min(next_runs)}")
+            print(f"  {t('cron.next_run')}: {min(next_runs)}")
     else:
-        print("  No active jobs")
+        print(f"  {t('cron.no_active_jobs')}")
 
     print()
 
@@ -177,21 +178,21 @@ def cron_create(args):
         no_agent=getattr(args, "no_agent", False) or None,
     )
     if not result.get("success"):
-        print(color(f"Failed to create job: {result.get('error', 'unknown error')}", Colors.RED))
+        print(color(t("cron.failed_create", error=result.get("error", t("errors.unknown"))), Colors.RED))
         return 1
-    print(color(f"Created job: {result['job_id']}", Colors.GREEN))
-    print(f"  Name: {result['name']}")
-    print(f"  Schedule: {result['schedule']}")
+    print(color(t("cron.created_job", job_id=result["job_id"]), Colors.GREEN))
+    print(f"  {t('cron.name')}: {result['name']}")
+    print(f"  {t('cron.schedule')}: {result['schedule']}")
     if result.get("skills"):
-        print(f"  Skills: {', '.join(result['skills'])}")
+        print(f"  {t('cron.skills')}: {', '.join(result['skills'])}")
     job_data = result.get("job", {})
     if job_data.get("script"):
-        print(f"  Script: {job_data['script']}")
+        print(f"  {t('cron.script')}: {job_data['script']}")
     if job_data.get("no_agent"):
         print("  Mode: no-agent (script stdout delivered directly)")
+    print(f"  {t('cron.next_run')}: {result['next_run_at']}")
     if job_data.get("workdir"):
         print(f"  Workdir: {job_data['workdir']}")
-    print(f"  Next run: {result['next_run_at']}")
     return 0
 
 
@@ -200,7 +201,7 @@ def cron_edit(args):
 
     job = get_job(args.job_id)
     if not job:
-        print(color(f"Job not found: {args.job_id}", Colors.RED))
+        print(color(t("cron.job_not_found", job_id=args.job_id), Colors.RED))
         return 1
 
     existing_skills = list(job.get("skills") or ([] if not job.get("skill") else [job.get("skill")]))
@@ -233,19 +234,19 @@ def cron_edit(args):
         no_agent=getattr(args, "no_agent", None),
     )
     if not result.get("success"):
-        print(color(f"Failed to update job: {result.get('error', 'unknown error')}", Colors.RED))
+        print(color(t("cron.failed_update", error=result.get("error", t("errors.unknown"))), Colors.RED))
         return 1
 
     updated = result["job"]
-    print(color(f"Updated job: {updated['job_id']}", Colors.GREEN))
-    print(f"  Name: {updated['name']}")
-    print(f"  Schedule: {updated['schedule']}")
+    print(color(t("cron.updated_job", job_id=updated["job_id"]), Colors.GREEN))
+    print(f"  {t('cron.name')}: {updated['name']}")
+    print(f"  {t('cron.schedule')}: {updated['schedule']}")
     if updated.get("skills"):
-        print(f"  Skills: {', '.join(updated['skills'])}")
+        print(f"  {t('cron.skills')}: {', '.join(updated['skills'])}")
     else:
-        print("  Skills: none")
+        print(f"  {t('cron.skills')}: {t('cron.skills_none')}")
     if updated.get("script"):
-        print(f"  Script: {updated['script']}")
+        print(f"  {t('cron.script')}: {updated['script']}")
     if updated.get("no_agent"):
         print("  Mode: no-agent (script stdout delivered directly)")
     if updated.get("workdir"):
@@ -256,14 +257,14 @@ def cron_edit(args):
 def _job_action(action: str, job_id: str, success_verb: str) -> int:
     result = _cron_api(action=action, job_id=job_id)
     if not result.get("success"):
-        print(color(f"Failed to {action} job: {result.get('error', 'unknown error')}", Colors.RED))
+        print(color(t("cron.failed_action", action=action, error=result.get("error", t("errors.unknown"))), Colors.RED))
         return 1
     job = result.get("job") or result.get("removed_job") or {}
-    print(color(f"{success_verb} job: {job.get('name', job_id)} ({job_id})", Colors.GREEN))
+    print(color(t("cron.action_ok", verb=success_verb, name=job.get("name", job_id), job_id=job_id), Colors.GREEN))
     if action in {"resume", "run"} and result.get("job", {}).get("next_run_at"):
-        print(f"  Next run: {result['job']['next_run_at']}")
+        print(f"  {t('cron.next_run')}: {result['job']['next_run_at']}")
     if action == "run":
-        print("  It will run on the next scheduler tick.")
+        print(f"  {t('cron.run_next_tick')}")
     return 0
 
 
@@ -302,6 +303,6 @@ def cron_command(args):
     if subcmd in {"remove", "rm", "delete"}:
         return _job_action("remove", args.job_id, "Removed")
 
-    print(f"Unknown cron command: {subcmd}")
-    print("Usage: hermes cron [list|create|edit|pause|resume|run|remove|status|tick]")
+    print(t("cron.unknown_command", subcmd=subcmd))
+    print(t("cron.usage"))
     sys.exit(1)
