@@ -144,6 +144,7 @@ STRINGS = {
         "stop": {
             "stopped_pending": "Stopped. The agent hadn't started yet — you can continue this session.",
             "stopped": "Stopped. You can continue this session.",
+            "force_stopped": "Force-stopped. The agent was still starting — session unlocked.",
             "no_active": "No active task to stop.",
         },
         "restart": {

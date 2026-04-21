@@ -144,6 +144,7 @@ STRINGS = {
         "stop": {
             "stopped_pending": "已停止。Agent 尚未真正启动，你可以继续当前会话。",
             "stopped": "已停止。你可以继续当前会话。",
+            "force_stopped": "已强制停止。Agent 仍在启动中，会话已解锁。",
             "no_active": "当前没有可停止的活动任务。",
         },
         "restart": {
